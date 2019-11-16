@@ -2,30 +2,28 @@
 #include "PC.FileIO.c"
 void clean (state* cur_state)
 {
-    TFileHandle fin;
-    bool (fileOkay = openReadPC(fin, "data.txt"));
-    if (!fileOkay)
+    for (int cycle = 0; cycle < cur_state -> clean_cycles; cycle++)
     {
-        displayString(5, "Error!"); //I would like to use the speaker here
-        wait1Msec(5000);
-    }
-    else
-    {
-        int x_coord = 0, y_coord = 0;
-
-        //infinite for loop, only ends when cur_state does not point to clean_cycle
-        for (int cycle = 0; cycle < 1 && cur_state -> clean_cycle; cycle --)
+        TFileHandle fin;
+        if (!openReadPC(fin, "data.txt"))
         {
-            while (readIntPC(fin, x_coord) && cur_state->clean_cycle)
+            displayString(5, "Error!"); //I would like to use the speaker here
+            wait1Msec(5000);
+        }
+        else
+        {
+            int x_coord = 0, y_coord = 0;
+        
+            while (readIntPC(fin, x_coord))
             {
-                readIntPC(fin, y_coord); // this is here because unknown how mant arguments readIntPC can take
-                //if it can take more than one, this can be placed in while loop
+                readIntPC(fin, y_coord); 
                 goto(x_coord, y_coord, cur_state);
             }
+            closeFilePC(fin);
         }   
     }
 
-    closeFilePC(fin);
+    
     
     
 }
