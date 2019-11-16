@@ -7,14 +7,6 @@ typedef struct{
 	bool interrupt;
 }state;
 
-state* construct_state(int x, int y){
-	state* temp = malloc(sizeof(state));
-	temp->pos[0] = x;
-	temp->pos[1] = y;
-	return temp;
-}
-// The destructor will just be free()
-
 int min(int a, int b){
 	if (a > b)
 		return b;
@@ -52,7 +44,7 @@ bool search(int cur_x, int cur_y, int dest_x, int dest_y, bool map[10][10], int 
 		printf("Trivial solution\n");
 		return 1;
 	}
-	if (paths[cur_x][cur_y] < weight)
+	if (paths[cur_x][cur_y] <= weight && paths[cur_x][cur_y] != 0)
 		return 0;
 	paths[cur_x][cur_y] = weight;
 	weight++;
@@ -73,22 +65,21 @@ void go_to(int x, int y, bool map[10][10], state* cur_state){
 
 int main(){
 
-	bool map[10][10] = 
-	{{1,1,1,1,1,1,1,1,1,1},
-	 {1,0,0,0,1,1,0,0,0,1},
-	 {1,0,0,0,1,1,0,0,0,1},
-	 {1,0,0,0,1,1,0,0,0,1},
-	 {1,0,0,0,0,0,0,0,0,1},
-	 {1,0,0,0,0,0,0,1,0,1},
-	 {1,0,0,0,0,0,0,1,0,1},
-	 {1,0,1,1,1,1,1,1,0,1},
-	 {1,0,0,0,0,0,0,0,0,1},
-	 {1,1,1,1,1,1,1,1,1,1}};
-	state* current_state = construct_state(8,8);
-	int paths[10][10] = {{0}};
-	go_to(2,3,map,paths,current_state);
-	display_array(paths);
+	bool map[10][10] =
+	{{0,0,0,0,0,0,0,0,0,0},
+	 {0,1,1,1,0,0,1,1,1,0},
+	 {0,1,1,1,0,0,1,1,1,0},
+	 {0,1,1,1,0,0,1,1,1,0},
+	 {0,1,1,1,1,1,1,1,1,0},
+	 {0,1,1,1,1,1,1,0,1,0},
+	 {0,1,1,1,1,1,1,0,1,0},
+	 {0,1,0,0,0,0,0,0,1,0},
+	 {0,1,1,1,1,1,1,1,1,0},
+	 {0,0,0,0,0,0,0,0,0,0}};
+	state current_state;
+	current_state.pos[0] = 8;
+	current_state.pos[1] = 8;
+	go_to(2,3,map,&current_state);
 
-	printf("Hello world lmao\n");
 	return 0;
 }
