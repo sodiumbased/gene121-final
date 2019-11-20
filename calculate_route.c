@@ -13,19 +13,18 @@ void calculate_route(){
 	for(int i = 0; i < COL_SIZE; i++){
 		while(j < ROW_SIZE){
 			while(map[(1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1)][i]){
-				writeLongPC(fout, (1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1));
-				writeTextPC(fout, " ");
 				writeLongPC(fout, i);
+				writeTextPC(fout, " ");
+				writeLongPC(fout, (1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1));
 				writeEndlPC(fout);
 				j++;
 
 				while(map[(1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1)][i]){
 					j++;
 				}
-
-				writeLongPC(fout, ((1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1)) - (1 - 2 * reverse));
-				writeTextPC(fout, " ");
 				writeLongPC(fout, i);
+				writeTextPC(fout, " ");
+				writeLongPC(fout, ((1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1)) - (1 - 2 * reverse));
 				writeEndlPC(fout);
 			}
 			j++;
