@@ -2,10 +2,8 @@
 // Created by Josh Cai on 2019-11-18.
 //
 
-#include <stdbool.h>
 
-
-bool get_cycles(){
+int get_cycles(){
     int cycles = 1;
     bool selected = false;
 
@@ -38,4 +36,8 @@ bool get_cycles(){
     }
 
     return cycles;
+}
+
+task main(){
+	get_cycles();
 }

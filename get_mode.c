@@ -1,8 +1,6 @@
 //
 // Created by Josh Cai on 2019-11-18.
 //
-#include <stdbool.h>
-
 
 bool get_mode(){
     bool mode =  true; //true for mop, false for UV
@@ -30,4 +28,8 @@ bool get_mode(){
     }
 
     return mode;
+}
+
+task main(){
+	get_mode();
 }

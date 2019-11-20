@@ -2,8 +2,12 @@
 // Created by Josh Cai on 2019-11-18.
 //
 
+typedef struct{
+	bool interrupt;
+} state;
+
 void drive(float distance, state* cur_state, bool canInterrupt){
-    float encoderLimit = distance / (4 * M_Pi * 2) * 360;
+    float encoderLimit = distance / (4 * PI * 2) * 360;
 
     nMotorEncoder[motorA] = 0;
     motor[motorA] = motor[motorD] = 25;
@@ -19,4 +23,9 @@ void drive(float distance, state* cur_state, bool canInterrupt){
     }
 
     motor[motorA] = motor[motorD] = 0;
+}
+task main(){
+	state cur_state;
+	cur_state.interrupt = false;
+	drive(40, cur_state, true);
 }
