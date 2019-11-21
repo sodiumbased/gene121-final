@@ -14,16 +14,16 @@
 #include <string.h>
 #include <MappingTest.h>
 
-int map[85][85];
+int map[49][49];
 void fInit();
 void fMappingMain();
-
 bool fCheckSensorFailure();
 
 // TODO //
+enum MappingState;
 void fTurnUS(int degree);
 void fBasicTurn(int degree, int *bearing);
-//void fNavAdjust(int, enum MappingReference);
+//void fNavAdjust(int speed, enum MappingReference ref);
 
 typedef struct {
 	int acc_position_x;
@@ -32,13 +32,8 @@ typedef struct {
 	int current_position_y;
 } TempMapData;
 
-enum MappingState;
-void fTransitionState(TempMapData *, enum MappingState *, enum MappingState);
 
-int encoder = 0;
-int gyro = 0;
-int us_distance = 0;
-int ir_distance = 0;
+void fTransitionState(TempMapData *, enum MappingState *, enum MappingState);
 
 
 int main() {
@@ -56,17 +51,39 @@ void fInit() {
 }
 
 void fTurnUS(int degree) {
-	// turns ultrasonic sensor
+
+	if (degree < 0) {
+		motor[motorB] = -15;
+		while (SensorValue[S2] > degree) {}
+	} else {
+		motor[motorB] = 15;
+		while (SensorValue[S2] < degree) {}
+	}
+
+	motor[motorB] = 0;
 }
 
 void fBasicTurn(int degree, int *bearing) {
-	// turn by while loop
+
+	if (degree < 0) {
+		motor[motorA] = -15;
+		motor[motorD] = 15;
+		while (SensorValue[S2] > degree) {}
+	} else {
+		motor[motorA] = -15;
+		motor[motorD] = 15;
+		while (SensorValue[S2] < degree) {}
+	}
+
 	*bearing += degree;
 }
 
 bool fCheckSensorFailure() {
-	// if any touch sensors are on
-	return false;
+	if (triggered()) {
+		return true;
+	} else {
+		return false;
+	}
 }
 
 enum MappingReference {
@@ -75,28 +92,30 @@ enum MappingReference {
 
 
 void fNavAdjust(int speed, enum MappingReference ref) {
-	if ((us_distance*10 < 280) || (us_distance*10 > 320)) {
-		if (us_distance*10 < 280) {
+	if ((SensorValue[S3]*10 < 280) || (SensorValue[S3]*10 > 320)) {
+		if (SensorValue[S3]*10 < 280) {
 			if (ref == RIGHT) {
-				// set left  motor to speed + 3
+				motor[motorA] = speed + 3;
 			} else {
-				// set right motor to speed + 3
+				motor[motorD] = speed + 3;
 			}
 		} else {
 			if (ref == LEFT) {
-				// set left  motor to speed + 3
+				motor[motorA] = speed + 3;
 			} else {
-				// set right motor to speed + 3
+				motor[motorD] = speed + 3;
 			}
 		}
 	} else {
-		if (gyro < -1) {
-			// set left motor to speed + 2
-		} else if (gyro > 1) {
-			// set right motor to speed + 2
+		if (SensorValue[S2] < -1) {
+			motor[motorA] = speed + 2;
+		} else if (SensorValue[S2] > 1) {
+			motor[motorD] = speed + 3;
 		} else {
 			// set both motors to speed
-			// if (motor[motorA] != motor[motorD]) { motor[motorA] = motor[motorD] }
+			if (motor[motorA] != motor[motorD]) {
+				motor[motorA] = motor[motorD] = speed;
+			}
 		}
 	}
 }
@@ -118,8 +137,8 @@ enum MappingState {
 };
 
 void fResetNav() {
-	// reset gyro
-	// reset encoder
+	resetGyro();
+	nMotorEncoder[motorA] = 0;
 }
 
 void fLogNav(TempMapData *data) {
@@ -137,14 +156,17 @@ void fTransitionState(TempMapData *data, enum MappingState *state, enum MappingS
 }
 
 void fExportPosition(int cur_x, int cur_y) {
-	int square_x = 43 + cur_x/250;
-	int square_y = 43 + cur_y/250;
+	int square_x = 25 + cur_x/250;
+	int square_y = 25 + cur_y/250;
 
 	if (!map[square_x][square_y]) {
 		map[square_x][square_y] = 1;
 	}
 }
 
+void fGo(int speed) {
+	motor[motorA] = motor[motorD] = speed;
+}
 
 void fMappingMain() {
 
@@ -167,38 +189,37 @@ void fMappingMain() {
 	bool mapping_blackout = false;
 
 	char error_message[] = "no errors";
-	char status_message[] = "initialized";
 
 	int last_us_distance = -1;
-	int last_ir_distance = -1;
 
 
 
 	while (!exit) {
-		// delay(100 msec); // game loop delay
-		temp_distance = (encoder/180.0)*40.0;
+
+		wait1msec(100);
+		temp_distance = (nMotorEncoder[motorA]/180.0)*40.0;
 		pos_data.current_position_x = pos_data.acc_position_x + temp_distance*cos(90 - bearing_angle);
 		pos_data.current_position_y = pos_data.acc_position_y + temp_distance*sin(90 - bearing_angle);
 
-
+		fExportPosition(pos_data.current_position_x,pos_data.current_position_y);
 
 
 		if (mapping_state == STATE_STARTING) {
 
 			fTransitionState(&pos_data, &mapping_state, STATE_UNDOCKING);
 
-			// motors to 90
+			fGo(25);
 
 		} else if (mapping_state == STATE_UNDOCKING) {
 
 			if (fCheckSensorFailure()) {
-				//kill motors
+				fGo(0);
 				fTransitionState(&pos_data, &mapping_state, STATE_ERROR);
 				strcpy(error_message,"ran into object while undocking");
 			}
 
 			if (temp_distance > 600) {
-				//kill motors
+				fGo(0);
 				fTransitionState(&pos_data, &mapping_state, STATE_CALIBRATION);
 
 			}
@@ -206,9 +227,9 @@ void fMappingMain() {
 		} else if (mapping_state == STATE_CALIBRATION) {
 
 			fTurnUS(90);
-			float distRight = us_distance*10;
+			float distRight = SensorValue[S3]*10;
 			fTurnUS(-180);
-			float distLeft = us_distance*10;
+			float distLeft = SensorValue[S3]*10;
 
 			if (distRight > distLeft) {
 				reference = LEFT;
@@ -225,7 +246,7 @@ void fMappingMain() {
 			fTurnUS(-15*reference_direction_adjust);
 
 			fTransitionState(&pos_data,&mapping_state, STATE_DEPLOYMENT);
-			//motors to 90
+			fGo(25);
 
 
 
@@ -234,55 +255,56 @@ void fMappingMain() {
 			if (fCheckSensorFailure()) {
 				fTransitionState(&pos_data, &mapping_state, STATE_ERROR);
 				strcpy(error_message,"ran into object while deploying for mapping");
-				// kill motors
+				fGo(0);
 			}
 
-			if (ir_distance <= 300) {
+			if (SensorValue[S4]*10 <= 300) {
 				fTransitionState(&pos_data, &mapping_state, STATE_ERROR);
 				strcpy(error_message,"not enough space to deploy for mapping");
-				// kill motors
+				fGo(0);
 			}
 
-			if (us_distance*10 >= 300) {
+			if (SensorValue[S3]*10 >= 300) {
+				fGo(0);
 
-				if ((us_distance*10 - last_us_distance) >= 300) {
-					// kill motors
+				if ((SensorValue[S3]*10 - last_us_distance) >= 300) {
+
 					fBasicTurn(-15*reference_direction_adjust, &bearing_angle);
 					fTurnUS(15*reference_direction_adjust);
 					fTransitionState(&pos_data, &mapping_state, STATE_EXECUTING_OUTWARD_TURN);
-					// motors to 90
+					fGo(25);
+
 				} else {
-					// kill motors
 					fBasicTurn((-15)*reference_direction_adjust, &bearing_angle);
 					fTransitionState(&pos_data, &mapping_state, STATE_MOVING);
-					// motors to 90
+					fGo(25);
 				}
 			}
 		} else if (mapping_state == STATE_MOVING) {
-			fNavAdjust(90, reference);
+			fNavAdjust(25, reference);
 
-			if ((us_distance*10 - last_us_distance) >= 300) {
-				// kill motors
+			if ((SensorValue[S3]*10 - last_us_distance) >= 300) {
+				fGo(0);
 				fTransitionState(&pos_data, &mapping_state, STATE_EXECUTING_OUTWARD_TURN);
-				// motors to 90
+				fGo(25);
 			}
 
-			if (ir_distance >= 300) {
-				// kill motors
+			if (SensorValue[S4]*10 >= 300) {
+				fGo(0);
 				fBasicTurn(90*reference_direction_adjust, &bearing_angle);
 				fLogNav(&pos_data);
-				// motors to 90
+				fGo(25);
 
 			}
 
 		} else if (mapping_state == STATE_EXECUTING_OUTWARD_TURN) {
-			fNavAdjust(90, reference);
+			fNavAdjust(25, reference);
 
-			if (us_distance >= 300) {
-				// kill motors
+			if (SensorValue[S3] >= 300) {
+				fGo(0);
 				fBasicTurn((-90)*reference_direction_adjust,&bearing_angle);
 				fTransitionState(&pos_data, &mapping_state, STATE_MOVING);
-				// motors to 90
+				fGo(25);
 			}
 		}
 
@@ -290,8 +312,9 @@ void fMappingMain() {
 
 		// state switch complete
 
-		last_us_distance = us_distance*10; // for determining delta distances
-		last_ir_distance = ir_distance;
+		last_us_distance = SensorValue[S3]*10; // for determining delta distances
+
+
 	}
 }
 
