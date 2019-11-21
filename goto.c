@@ -1,23 +1,29 @@
 #include "PC_FileIO.c"
 
-bool map[10][10] =
-	{{0,0,0,0,0,0,0,0,0,0},
-	 {0,1,1,1,0,0,1,1,1,0},
-	 {0,1,1,1,0,0,1,1,1,0},
-	 {0,1,1,1,0,0,1,1,1,0},
-	 {0,1,1,1,1,1,1,1,1,0},
-	 {0,1,1,1,1,1,1,0,1,0},
-	 {0,1,1,1,1,1,1,0,1,0},
-	 {0,1,0,0,0,0,0,0,1,0},
-	 {0,1,1,1,1,1,1,1,1,0},
-	 {0,0,0,0,0,0,0,0,0,0}};
+// bool map[10][10] =
+// 	{{0,0,0,0,0,0,0,0,0,0},
+// 	 {0,1,1,1,0,0,1,1,1,0},
+// 	 {0,1,1,1,0,0,1,1,1,0},
+// 	 {0,1,1,1,0,0,1,1,1,0},
+// 	 {0,1,1,1,1,1,1,1,1,0},
+// 	 {0,1,1,1,1,1,1,0,1,0},
+// 	 {0,1,1,1,1,1,1,0,1,0},
+// 	 {0,1,0,0,0,0,0,0,1,0},
+// 	 {0,1,1,1,1,1,1,1,1,0},
+// 	 {0,0,0,0,0,0,0,0,0,0}};
 
-int paths[10][10] = {{0}};
+// int paths[10][10] = {{0}};
+
+bool map[49][49];
+int paths[49][49];
 
 typedef struct{
 	int pos[2];
 	int dir;
-	bool interrupt;
+	bool* interrupt;
+	int mode;
+	int clean_cycles;
+	bool* hasFinished;
 }state;
 
 void initialize_paths(){
@@ -45,10 +51,10 @@ void drive(float distance, state* cur_state, bool canInterrupt){
 	nMotorEncoder[motorA] = 0;
 	motor[motorA] = motor[motorD] = -25;
 	int initial_angle = getGyroDegrees(S2);
-	while(!(cur_state->interrupt && canInterrupt) && nMotorEncoder[motorA] > encoderLimit){
+	while(!(*(cur_state->interrupt) && canInterrupt) && nMotorEncoder[motorA] > encoderLimit){
 		eraseDisplay();
 		displayString(3,"%d",nMotorEncoder[motorA]);
-		displayString(4,"%d",!(cur_state->interrupt && canInterrupt) && nMotorEncoder[motorA] > encoderLimit);
+		displayString(4,"%d",!(*(cur_state->interrupt) && canInterrupt) && nMotorEncoder[motorA] > encoderLimit);
 		displayString(5,"%d", getGyroDegrees(S2));
 
 		if(getGyroDegrees(S2) - initial_angle < -1){
@@ -82,19 +88,19 @@ void drive(float distance, state* cur_state, bool canInterrupt){
 	wait1Msec(100);
 }
 
-void turn(int angle, state* cur_state, bool canInterrupt){
+void turn(int angle, state* cur_state){
 	const int OVERSHOOT_CORRECTION = 2;
 	int initAngle = getGyroDegrees(S2);
 
 	if(angle > 0){
 		motor[motorA] = -10;
 		motor[motorD] = 10;
-		while(!(cur_state->interrupt && canInterrupt) && (getGyroDegrees(S2) < (initAngle + angle - OVERSHOOT_CORRECTION))){}
+		while(getGyroDegrees(S2) < (initAngle + angle - OVERSHOOT_CORRECTION)){}
 	}
 	else if(angle < 0){
 		motor[motorA] = 10;
 		motor[motorD] = -10;
-		while(!(cur_state->interrupt && canInterrupt) && (getGyroDegrees(S2) > (initAngle + angle + OVERSHOOT_CORRECTION))){}
+		while(getGyroDegrees(S2) > (initAngle + angle + OVERSHOOT_CORRECTION)){}
 	}
 
 	motor[motorA] = motor[motorD] = 0;
@@ -235,12 +241,20 @@ task main(){
 	wait1Msec(50);
 	SensorMode[S2] = modeEV3Gyro_RateAndAngle;
 	wait1Msec(50);
+	SensorType[S1] = sensorEV3_Color;
+	wait1Msec(50);
+	SensorMode[S1] = modeEV3Color_Ambient;
+	wait1Msec(50);
+
 	state current_state;
 	current_state.pos[0] = 8;
 	current_state.pos[1] = 8;
 	current_state.dir = 2;
-	// go_to(1,2,&current_state);
-	drive(100, &current_state, 1);
+	current_state.interrupt = &(map[48][48]);
+	current_state.hasFinished = &(map[48][0]);
+
+	go_to(1,2,&current_state);
+	// drive(100, &current_state, 1);
 	// turn(-90, &current_state, 1);
 	// wait1Msec(500);
 	// turn(90, &current_state, 1);
