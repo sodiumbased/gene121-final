@@ -42,21 +42,22 @@ int max(int a, int b){
 
 void drive(float distance, state* cur_state, bool canInterrupt){
 	float encoderLimit = - distance * 180 / PI / 4;
-
 	nMotorEncoder[motorA] = 0;
 	motor[motorA] = motor[motorD] = -25;
+	int initial_angle = getGyroDegrees(S2);
 	while(!(cur_state->interrupt && canInterrupt) && nMotorEncoder[motorA] > encoderLimit){
 		eraseDisplay();
 		displayString(3,"%d",nMotorEncoder[motorA]);
 		displayString(4,"%d",!(cur_state->interrupt && canInterrupt) && nMotorEncoder[motorA] > encoderLimit);
 		displayString(5,"%d", getGyroDegrees(S2));
 
-		if(getGyroDegrees(S2) < -1){
+		if(getGyroDegrees(S2) - initial_angle < -1){
 			motor[motorA] = -27;
 		}
-		else if(getGyroDegrees(S2) > 1){
+		else if(getGyroDegrees(S2) - initial_angle > 1){
 			motor[motorD] = -27;
-			} else {
+		} 
+		else {
 			motor[motorA] = motor[motorD] = -25;
 		}
 
@@ -67,17 +68,18 @@ void drive(float distance, state* cur_state, bool canInterrupt){
 	float distanceTravelled = nMotorEncoder[motorA] * 2 * 4 * PI / 360;
 
 	if(cur_state->dir == 0){
-		cur_state->pos[1] = cur_state->pos[1] + (int)(distanceTravelled / 25);
+		cur_state->pos[1] = cur_state->pos[1] - (int)(distanceTravelled / 25);
 	}
 	else if(cur_state->dir == 1){
 		cur_state->pos[0] = cur_state->pos[0] + (int)(distanceTravelled / 25);
 	}
 	else if(cur_state->dir == 2){
-		cur_state->pos[1] = cur_state->pos[1] - (int)(distanceTravelled / 25);
+		cur_state->pos[1] = cur_state->pos[1] + (int)(distanceTravelled / 25);
 	}
 	else {
 		cur_state->pos[0] = cur_state->pos[0] - (int)(distanceTravelled / 25);
 	}
+	wait1Msec(100);
 }
 
 void turn(int angle, state* cur_state, bool canInterrupt){
@@ -96,41 +98,8 @@ void turn(int angle, state* cur_state, bool canInterrupt){
 	}
 
 	motor[motorA] = motor[motorD] = 0;
-
-	int deltaAngle;
-	int numTurns = 0;
-
-	if(angle > 0){
-		deltaAngle = getGyroDegrees(S2)- initAngle;
-	}
-	else if(angle < 0){
-		deltaAngle = initAngle - getGyroDegrees(S2);
-	}
-
-	if(deltaAngle % 90 < 85){
-		deltaAngle -= deltaAngle % 90;
-	}
-	else if(deltaAngle % 90 >= 85){
-		deltaAngle += 90 - (deltaAngle % 90);
-	}
-	numTurns = deltaAngle % 90;
-
-	if(angle > 0){
-		for(int i = 0; i < numTurns; i++){
-			cur_state->dir++;
-			if(cur_state->dir == 4){
-				cur_state->dir = 0;
-			}
-		}
-	}
-	else if(angle < 0){
-		for(int i = 0; i < numTurns; i++){
-			cur_state->dir--;
-			if(cur_state->dir == -1){
-				cur_state->dir = 3;
-			}
-		}
-	}
+	cur_state->dir = (cur_state->dir + angle / 90 + 4) % 4;
+	wait1Msec(100);
 }
 
 void search(int cur_x, int cur_y, int dest_x, int dest_y, int weight){
@@ -152,6 +121,7 @@ int find_dir(int x, int y){
 		if (dir[i]+1 == weight)
 			return i;
 	}
+	return 0;
 }
 
 void find_nav(int dest_x, int dest_y, int initial_dir){
@@ -244,18 +214,19 @@ void go_to(int x, int y, state* cur_state){
 			turn((3-cur_state->dir)*90, cur_state, 0);
 		drive(abs(y-cur_state->pos[1])*10, cur_state, 0); // 10 for testing, 25 for actual
 		if (x - cur_state->pos[0] > 0) // This is delta y
-			turn(-cur_state->dir*90, cur_state, 0);
-		else
 			turn((2-cur_state->dir)*90, cur_state, 0);
+		else
+			turn((-cur_state->dir)*90, cur_state, 0);
 		drive(abs(x-cur_state->pos[0])*10, cur_state, 0); // 10 for testing, 25 for actual
 	}
-
+	else {
 	initialize_paths();
 	search(cur_state->pos[0], cur_state->pos[1], x, y, 1);
 	find_nav(x, y, cur_state->dir);
 	read_instructions(cur_state);
 	//motor functions later lol
 	//output the "trivial solution" messages to a file so I can read the first one
+	}
 }
 
 
@@ -267,7 +238,11 @@ task main(){
 	state current_state;
 	current_state.pos[0] = 8;
 	current_state.pos[1] = 8;
-	current_state.dir = 1;
-	go_to(3,2,&current_state);
+	current_state.dir = 2;
+	// go_to(1,2,&current_state);
+	drive(100, &current_state, 1);
+	// turn(-90, &current_state, 1);
+	// wait1Msec(500);
+	// turn(90, &current_state, 1);
 
 }
