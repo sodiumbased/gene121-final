@@ -212,9 +212,9 @@ void go_to(int x, int y, state* cur_state){
 			turn((3-cur_state->dir)*90, cur_state, 0);
 		drive(abs(y-cur_state->pos[1])*10, cur_state, 0); // 10 for testing, 25 for actual
 		if (x - cur_state->pos[0] > 0) // This is delta y
-			turn(-cur_state->dir*90, cur_state, 0);
-		else
 			turn((2-cur_state->dir)*90, cur_state, 0);
+		else
+			turn((-cur_state->dir)*90, cur_state, 0);
 		drive(abs(x-cur_state->pos[0])*10, cur_state, 0); // 10 for testing, 25 for actual
 	}
 	else {
