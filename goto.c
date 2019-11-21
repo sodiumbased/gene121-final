@@ -51,12 +51,13 @@ void drive(float distance, state* cur_state, bool canInterrupt){
 		displayString(4,"%d",!(cur_state->interrupt && canInterrupt) && nMotorEncoder[motorA] > encoderLimit);
 		displayString(5,"%d", getGyroDegrees(S2));
 
-		if(initial_angle - getGyroDegrees(S2) < -1){
+		if(getGyroDegrees(S2) - initial_angle < -1){
 			motor[motorA] = -27;
 		}
-		else if(initial_angle - getGyroDegrees(S2) > 1){
+		else if(getGyroDegrees(S2) - initial_angle > 1){
 			motor[motorD] = -27;
-			} else {
+		} 
+		else {
 			motor[motorA] = motor[motorD] = -25;
 		}
 
@@ -82,7 +83,7 @@ void drive(float distance, state* cur_state, bool canInterrupt){
 }
 
 void turn(int angle, state* cur_state, bool canInterrupt){
-	const int OVERSHOOT_CORRECTION = 1;
+	const int OVERSHOOT_CORRECTION = 2;
 	int initAngle = getGyroDegrees(S2);
 
 	if(angle > 0){
@@ -120,6 +121,7 @@ int find_dir(int x, int y){
 		if (dir[i]+1 == weight)
 			return i;
 	}
+	return 0;
 }
 
 void find_nav(int dest_x, int dest_y, int initial_dir){
@@ -237,6 +239,10 @@ task main(){
 	current_state.pos[0] = 8;
 	current_state.pos[1] = 8;
 	current_state.dir = 2;
-	go_to(1,2,&current_state);
+	// go_to(1,2,&current_state);
+	drive(100, &current_state, 1);
+	// turn(-90, &current_state, 1);
+	// wait1Msec(500);
+	// turn(90, &current_state, 1);
 
 }
