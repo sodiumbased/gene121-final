@@ -23,8 +23,10 @@ void clean (state* cur_state)
 			while (readIntPC(fin, x_coord))
 			{
 				readIntPC(fin, y_coord);
-				go_to(x_coord, y_coord, cur_state);
-                while (cur_state->interrupt);
+				while (cur_state->pos[0] != x_coord && cur_state->pos[1] != y_coord){
+					go_to(x_coord, y_coord, cur_state);
+					while (cur_state->interrupt);
+				}
 			}
 			closeFilePC(fin);
 		}
