@@ -8,17 +8,17 @@ void wet()
 
     for (int wet =0; wet < TIMES_WET; wet++)
     {
-        nMotorEncoder[motorD] =0;
-        motor[motorD] = -20;
+        nMotorEncoder[motorC] =0;
+        motor[motorC] = -20;
 
         while (((nMotorEncoder[motorD]*WHEEL_RADIUS*PI)/180) > WATER_LEVEL)
         {}
-        motor[motorD] = 0;
+        motor[motorC] = 0;
         wait1Msec(2000);
-        motor[motorD] = 20;
-        while(nMotorEncoder[motorD]< 0)
+        motor[motorC] = 20;
+        while(nMotorEncoder[motorC]< 0)
         {}
-        motor[motorD] = 0;
+        motor[motorC] = 0;
 
     }
 }
