@@ -5,7 +5,9 @@
  *      Author: Artem Sotnikov
  */
 
-int map[85][85];
+bool map[49][49];
+int paths[49][49];
+
 void fInit();
 void fMappingMain();
 
@@ -24,7 +26,7 @@ typedef struct {
 } TempMapData;
 
 enum MappingState;
-void fTransitionState(TempMapData *, enum MappingState *, enum MappingState);
+void fTransitionState(TempMapData *data, enum MappingState *state, enum MappingState target);
 
 int encoder = 0;
 int gyro = 0;
@@ -40,7 +42,9 @@ void fInit() {
 }
 
 void fTurnUS(int degree) {
-	// turns ultrasonic sensor
+	if (degree < 0) {motor[motorB] = -15;}
+	else if (degree > 0) {motor[motorB] = 15}
+
 }
 
 void fBasicTurn(int degree, int *bearing) {
@@ -163,7 +167,7 @@ void fMappingMain() {
 		temp_distance = (encoder/180.0)*40.0;
 		pos_data.current_position_x = pos_data.acc_position_x + temp_distance*cos(90 - bearing_angle);
 		pos_data.current_position_y = pos_data.acc_position_y + temp_distance*sin(90 - bearing_angle);
-
+		fExportPosition(pos_data.current_position_x, pos_data.current_position_y);
 
 
 
