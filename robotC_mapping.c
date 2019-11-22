@@ -1,13 +1,13 @@
 #define MAPPING_DIST 400
 
 int map[49][49];
-int travel_map[49][49];
+bool travel_map[49][49];
 void fInit();
 void fMapPerimeter();
 bool fCheckSensorFailure();
 
 // TODO //
-enum MappingState;
+enum PerimeterMappingState;
 void fTurnUS(int degrees);
 void fBasicTurn(int degree, int *bearing);
 //void fNavAdjust(int speed, enum MappingReference ref);
@@ -20,7 +20,7 @@ typedef struct {
 } TempMapData;
 
 
-void fTransitionState(TempMapData *data, enum MappingState *state, enum MappingState target);
+void fTransitionState(TempMapData *data, enum PerimeterMappingState *state, enum PerimeterMappingState target);
 
 void fInit() {
     for (int idx = 0; idx < 49; idx++) {
@@ -108,7 +108,7 @@ void fNavAdjust(int speed, enum MappingReference ref) {
     }
 }
 
-enum MappingState {
+enum PerimeterMappingState {
     STATE_STARTING,
     STATE_UNDOCKING,
     STATE_CALIBRATION,
@@ -136,7 +136,7 @@ void fLogNav(TempMapData *data) {
     fResetNav();
 }
 
-void fTransitionState(TempMapData *data, enum MappingState *state, enum MappingState target) {
+void fTransitionState(TempMapData *data, enum PerimeterMappingState *state, enum PerimeterMappingState target) {
   
   writeDebugStreamLine("transitioning now to %d", target);
     *state = target;
@@ -158,7 +158,7 @@ void fMapPerimeter() {
     int square_x = 0;
     int square_y = 0;
 
-    enum MappingState mapping_state = STATE_STARTING;
+    enum PerimeterMappingState mapping_state = STATE_STARTING;
 
     enum MappingReference reference = NOT_SET;
     int reference_direction_adjust = 0;
@@ -322,6 +322,13 @@ void fMapPerimeter() {
     }
 }
 
+void fTestNav() {
+	for (int i = 0; i < 100; i++) {
+		wait1msec(100);
+		fNavAdjust(25);
+	}
+}
+
 void hasSurround(int compare_target,int x_value, int y_value) {
 	if (map[x_value - 1][y_value - 1] == compare ||
 			map[x_value    ][y_value - 1] == compare ||
@@ -341,14 +348,24 @@ void hasSurround(int compare_target,int x_value, int y_value) {
 void markArray() {
 	for (idx1 = 0; idx1 < 49; idx1++) {
 		for (int idx2 = 0; idx2 < 49; idx2++) {
-			if (hasSurround(idx1,idx2)) {
-				travel_map[idx1][idx2] = 1;
+			if (hasSurround(1,idx1,idx2)) {
+				travel_map[idx1][idx2] = true;
 			}
 		}
 	}
 };
 
+enum MappingDirection {
+	DIRECTION_LEFT,DIRECTION_RIGHT,DIRECTION_FORWARDS,DIRECTION_BACKWARDS
+}
+
+enum InteriorMappingState {
+	STATE_MARKING, STATE_PATHING, STATE_ALIGNING
+}
+
 void fMapInterior() {
+	enum InteriorMappingState mapping_state = STATE_MARKING;
+	enum MappingDirection current_direction = DIRECTION_FORWARDS;
 
 
 }
@@ -357,9 +374,10 @@ void fMapInterior() {
 task main(){
     fInit();
     int no;
-    fMapPerimeter();
+    //fMapPerimeter();
     //fBasicTurn(15, &no);
     //fBasicTurn(-15, &no);
     //fBasicTurn(90, &no);
     //fBasicTurn(-90, &no);
+    fTestNav();
 }
