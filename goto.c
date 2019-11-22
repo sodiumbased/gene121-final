@@ -1,21 +1,21 @@
 #include "PC_FileIO.c"
 
-// bool map[10][10] =
-// 	{{0,0,0,0,0,0,0,0,0,0},
-// 	 {0,1,1,1,0,0,1,1,1,0},
-// 	 {0,1,1,1,0,0,1,1,1,0},
-// 	 {0,1,1,1,0,0,1,1,1,0},
-// 	 {0,1,1,1,1,1,1,1,1,0},
-// 	 {0,1,1,1,1,1,1,0,1,0},
-// 	 {0,1,1,1,1,1,1,0,1,0},
-// 	 {0,1,0,0,0,0,0,0,1,0},
-// 	 {0,1,1,1,1,1,1,1,1,0},
-// 	 {0,0,0,0,0,0,0,0,0,0}};
+bool map[10][10] =
+	{{0,0,0,0,0,0,0,0,0,0},
+	 {0,1,1,1,0,0,1,1,1,0},
+	 {0,1,1,1,0,0,1,1,1,0},
+	 {0,1,1,1,0,0,1,1,1,0},
+	 {0,1,1,1,1,1,1,1,1,0},
+	 {0,1,1,1,1,1,1,0,1,0},
+	 {0,1,1,1,1,1,1,0,1,0},
+	 {0,1,0,0,0,0,0,0,1,0},
+	 {0,1,1,1,1,1,1,1,1,0},
+	 {0,0,0,0,0,0,0,0,0,0}};
 
-// int paths[10][10] = {{0}};
+int paths[10][10] = {{0}};
 
-bool map[49][49];
-int paths[49][49];
+// bool map[49][49];
+// int paths[49][49];
 
 typedef struct{
 	int pos[2];
@@ -34,6 +34,29 @@ void initialize_paths(){
 	}
 }
 
+int identifyTouch()
+{
+	int light = getColorAmbient(S1);
+	int identify = 0;
+	if (light == 2)
+		identify = 4; // red - back
+	else if (light == 4)
+		identify = 1; // blue - right side
+	else if (light == 5 || light == 6)
+		identify = 3; // green - left
+	else if (light >= 8)
+		identify = 2; // white - front
+	writeDebugStreamLine("%d identified", identify);
+	return identify;
+}
+
+bool triggered ()
+{
+	if (getColorAmbient(S1) > 2)
+		return true;
+	return false;
+}
+
 int min(int a, int b){
 	if (a > b)
 		return b;
@@ -46,44 +69,43 @@ int max(int a, int b){
 	return b;
 }
 
-void drive(float distance, state* cur_state, bool canInterrupt){
+void drive(int distance, state* cur_state, bool canInterrupt){
 	float encoderLimit = - distance * 180 / PI / 4;
 	nMotorEncoder[motorA] = 0;
-	motor[motorA] = motor[motorD] = -25;
-	int initial_angle = getGyroDegrees(S2);
-	while(!(*(cur_state->interrupt) && canInterrupt) && nMotorEncoder[motorA] > encoderLimit){
-		eraseDisplay();
-		displayString(3,"%d",nMotorEncoder[motorA]);
-		displayString(4,"%d",!(*(cur_state->interrupt) && canInterrupt) && nMotorEncoder[motorA] > encoderLimit);
-		displayString(5,"%d", getGyroDegrees(S2));
+	if (distance > 0){
+		motor[motorA] = motor[motorD] = -25;
+		int initial_angle = getGyroDegrees(S2);
+		while(!(*(cur_state->interrupt) && canInterrupt) && nMotorEncoder[motorA] > encoderLimit){
+			if(getGyroDegrees(S2) - initial_angle < -1){
+				motor[motorA] = -27;
+			}
+			else if(getGyroDegrees(S2) - initial_angle > 1){
+				motor[motorD] = -27;
+			} 
+			else {
+				motor[motorA] = motor[motorD] = -25;
+			}
 
-		if(getGyroDegrees(S2) - initial_angle < -1){
-			motor[motorA] = -27;
 		}
-		else if(getGyroDegrees(S2) - initial_angle > 1){
-			motor[motorD] = -27;
-		} 
-		else {
-			motor[motorA] = motor[motorD] = -25;
-		}
-
+	}
+	else {
+		motor[motorA] = motor[motorD] = 25;
+		while (nMotorEncoder[motorA] < encoderLimit);
 	}
 
 	motor[motorA] = motor[motorD] = 0;
 
-	float distanceTravelled = nMotorEncoder[motorA] * 2 * 4 * PI / 360;
-
 	if(cur_state->dir == 0){
-		cur_state->pos[1] = cur_state->pos[1] - (int)(distanceTravelled / 25);
+		cur_state->pos[1] = cur_state->pos[1] - distance / 25;
 	}
 	else if(cur_state->dir == 1){
-		cur_state->pos[0] = cur_state->pos[0] + (int)(distanceTravelled / 25);
+		cur_state->pos[0] = cur_state->pos[0] + distance / 25;
 	}
 	else if(cur_state->dir == 2){
-		cur_state->pos[1] = cur_state->pos[1] + (int)(distanceTravelled / 25);
+		cur_state->pos[1] = cur_state->pos[1] + distance / 25;
 	}
 	else {
-		cur_state->pos[0] = cur_state->pos[0] - (int)(distanceTravelled / 25);
+		cur_state->pos[0] = cur_state->pos[0] - distance / 25;
 	}
 	wait1Msec(100);
 }
@@ -106,6 +128,25 @@ void turn(int angle, state* cur_state){
 	motor[motorA] = motor[motorD] = 0;
 	cur_state->dir = (cur_state->dir + angle / 90 + 4) % 4;
 	wait1Msec(100);
+}
+
+void wet()
+{
+    const int TIMES_WET = 2; //number of times the robot will wet the mop
+    const int WATER_LEVEL = 10;    // distance of water from the peak of the mop in cm
+    const int WHEEL_RADIUS = 4; //radius of the wheels
+
+    for (int wet =0; wet < TIMES_WET; wet++)
+    {
+        nMotorEncoder[motorD] =0;
+        motor[motorD] = 20;
+        while (((nMotorEncoder[motorD]*WHEEL_RADIUS*PI)/180) < WATER_LEVEL);
+        motor[motorD] = 0;
+        wait1Msec(2000);
+        motor[motorD] = -20;
+        while(nMotorEncoder[motorD]> 0);
+        motor[motorD] = 0;
+    }
 }
 
 void search(int cur_x, int cur_y, int dest_x, int dest_y, int weight){
@@ -195,9 +236,9 @@ void read_instructions(state* cur_state){
 	}
 	for (int i = 0; i < MAX_INS_SIZE; i++){
 		if (args[i]){
-			turn(args[i], cur_state, 0);
+			turn(args[i], cur_state);
 			i++;
-			drive(args[i], cur_state, 0);
+			drive(args[i], cur_state, 1);
 		}
 	}
 	closeFilePC(input);
@@ -215,15 +256,15 @@ void go_to(int x, int y, state* cur_state){
 	}
 	if (isTrivial){
 		if (y - cur_state->pos[1] > 0) // This is delta x
-			turn((1-cur_state->dir)*90, cur_state, 0);
+			turn((1-cur_state->dir)*90, cur_state);
 		else
-			turn((3-cur_state->dir)*90, cur_state, 0);
-		drive(abs(y-cur_state->pos[1])*10, cur_state, 0); // 10 for testing, 25 for actual
+			turn((3-cur_state->dir)*90, cur_state);
+		drive(abs(y-cur_state->pos[1])*10, cur_state, 1); // 10 for testing, 25 for actual
 		if (x - cur_state->pos[0] > 0) // This is delta y
-			turn((2-cur_state->dir)*90, cur_state, 0);
+			turn((2-cur_state->dir)*90, cur_state);
 		else
-			turn((-cur_state->dir)*90, cur_state, 0);
-		drive(abs(x-cur_state->pos[0])*10, cur_state, 0); // 10 for testing, 25 for actual
+			turn((-cur_state->dir)*90, cur_state);
+		drive(abs(x-cur_state->pos[0])*10, cur_state, 1); // 10 for testing, 25 for actual
 	}
 	else {
 	initialize_paths();
@@ -235,6 +276,103 @@ void go_to(int x, int y, state* cur_state){
 	}
 }
 
+void calculate_route(){
+	const int COL_SIZE = 10;
+	const int ROW_SIZE = 10;
+	TFileHandle fout;
+	bool okay = openWritePC(fout, "route.txt");
+
+	bool reverse = true;
+	int j = 0;
+
+	for(int i = 0; i < COL_SIZE; i++){
+		while(j < ROW_SIZE){
+			while(map[(1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1)][i]){
+				writeLongPC(fout, i);
+				writeTextPC(fout, " ");
+				writeLongPC(fout, (1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1));
+				writeEndlPC(fout);
+				j++;
+
+				while(map[(1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1)][i]){
+					j++;
+				}
+				writeLongPC(fout, i);
+				writeTextPC(fout, " ");
+				writeLongPC(fout, ((1 - 2 * reverse) * j + reverse * (ROW_SIZE - 1)) - (1 - 2 * reverse));
+				writeEndlPC(fout);
+			}
+			j++;
+		}
+		j = 0;
+		reverse = !reverse;
+	}
+
+	closeFilePC(fout);
+}
+
+
+void clean (state* cur_state)
+{
+	for (int cycle = 0; cycle < cur_state->clean_cycles; cycle++)
+	{
+		TFileHandle fin;
+		if (!openReadPC(fin, "data.txt"))
+		{
+			displayString(5, "Error!"); //I would like to use the speaker here
+			wait1Msec(5000);
+		}
+		else
+		{
+			int x_coord = 0, y_coord = 0;
+			while (readIntPC(fin, x_coord))
+			{
+				readIntPC(fin, y_coord);
+				while (cur_state->pos[0] != x_coord && cur_state->pos[1] != y_coord){
+					go_to(x_coord, y_coord, cur_state);
+					while (cur_state->interrupt);
+				}
+			}
+			closeFilePC(fin);
+		}
+	}
+}
+
+task obstacle_avoidance(){
+    state current_state;
+    current_state.interrupt = &(map[9][9]);
+    current_state.hasFinished = &(map[9][0]);
+    while (! *(current_state.hasFinished)){
+        if (triggered()){
+			*(current_state.interrupt) = 1;
+			int sensor = identifyTouch();
+			drive(-25, &current_state, 0);
+			if (sensor == 1){ //right
+				turn(-90, &current_state);
+				drive(25, &current_state, 0);
+				turn(90, &current_state);
+			}
+			else if (sensor == 2){ //front
+				if (random(1)){
+					turn(-90, &current_state);
+					drive(25, &current_state, 0);
+					turn(90, &current_state);
+				}
+				else {
+					turn(90, &current_state);
+					drive(25, &current_state, 0);
+					turn(-90, &current_state);
+				}
+			}
+			else if (sensor == 3){ //left
+				turn(90, &current_state);
+				drive(25, &current_state, 0);
+				turn(-90, &current_state);
+			}
+			*(current_state.interrupt) = 0;
+    	}
+	}
+}
 
 task main(){
 	SensorType[S2] = sensorEV3_Gyro;
@@ -247,16 +385,19 @@ task main(){
 	wait1Msec(50);
 
 	state current_state;
-	current_state.pos[0] = 8;
-	current_state.pos[1] = 8;
-	current_state.dir = 2;
-	current_state.interrupt = &(map[48][48]);
-	current_state.hasFinished = &(map[48][0]);
+	current_state.pos[0] = 1;
+	current_state.pos[1] = 2;
+	current_state.dir = 3;
+	current_state.interrupt = &(map[9][9]);
+	current_state.hasFinished = &(map[9][0]);
 
-	go_to(1,2,&current_state);
-	// drive(100, &current_state, 1);
+	startTask(obstacle_avoidance);
+	// go_to(8,8,&current_state);
+	// drive(-100, &current_state, 1);
 	// turn(-90, &current_state, 1);
 	// wait1Msec(500);
 	// turn(90, &current_state, 1);
+	wait1Msec(9999999999);
+	*(current_state.hasFinished) = 1;
 
 }
