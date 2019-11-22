@@ -1,18 +1,18 @@
 #include "PC_FileIO.c"
 
-bool map[10][10] =
-	{{0,0,0,0,0,0,0,0,0,0},
-	 {0,1,1,1,0,0,1,1,1,0},
-	 {0,1,1,1,0,0,1,1,1,0},
-	 {0,1,1,1,0,0,1,1,1,0},
-	 {0,1,1,1,1,1,1,1,1,0},
-	 {0,1,1,1,1,1,1,0,1,0},
-	 {0,1,1,1,1,1,1,0,1,0},
-	 {0,1,0,0,0,0,0,0,1,0},
-	 {0,1,1,1,1,1,1,1,1,0},
-	 {0,0,0,0,0,0,0,0,0,0}};
+bool map[10][13] =
+	{{0,0,0,0,0,0,0,0,1,1,1,1,0},
+	 {0,0,0,0,0,0,0,0,1,1,1,1,0},
+	 {0,0,0,0,0,0,0,0,1,1,1,1,0},
+	 {0,0,0,0,0,0,0,0,1,1,1,1,0},
+	 {0,0,0,0,0,0,0,0,1,1,1,1,0},
+	 {0,0,0,0,0,0,0,0,1,1,1,1,0},
+	 {0,1,1,1,1,1,1,1,1,1,1,1,0},
+	 {0,0,0,0,1,1,1,1,1,1,1,1,0},
+	 {0,0,0,0,1,1,1,1,1,1,1,1,0},
+	 {0,0,0,0,0,0,0,0,0,0,0,0,0}};
 
-int paths[10][10] = {{0}};
+int paths[10][13] = {{0}};
 
 // bool map[49][49];
 // int paths[49][49];
@@ -41,11 +41,11 @@ int identifyTouch()
 	int identify = 0;
 	if (light == 2)
 		identify = 4; // red - back
-	else if (light == 4)
-		identify = 1; // blue - right side
 	else if (light == 5 || light == 6)
+		identify = 1; // blue - right side
+	else if (light == 15)
 		identify = 3; // green - left
-	else if (light >= 8)
+	else if (light == 12)
 		identify = 2; // white - front
 	writeDebugStreamLine("%d identified", identify);
 	return identify;
@@ -84,7 +84,7 @@ void drive(int distance, state* cur_state, bool canInterrupt){
 			}
 			else if(getGyroDegrees(S2) - initial_angle > 1){
 				motor[motorD] = -27;
-			} 
+			}
 			else {
 				motor[motorA] = motor[motorD] = -25;
 			}
@@ -174,7 +174,11 @@ void search(int cur_x, int cur_y, int dest_x, int dest_y, int weight){
 
 int find_dir(int x, int y){
 	int weight = paths[y][x];
-	int dir[4] ={paths[y-1][x], paths[y][x+1], paths[y+1][x], paths[y][x-1]};
+	int dir[4];
+	dir[0]=paths[y-1][x];
+	dir[1]=paths[y][x+1];
+	dir[2]=paths[y+1][x];
+	dir[3]=paths[y][x-1];
 	// This is the correct order {up, right, down, left}
 	for (int i = 0; i < 4; i++){
 		if (dir[i]+1 == weight)
@@ -289,7 +293,7 @@ void go_to(int x, int y, state* cur_state){
 }
 
 void calculate_route(){
-	const int COL_SIZE = 10;
+	const int COL_SIZE = 13;
 	const int ROW_SIZE = 10;
 	TFileHandle fout;
 	bool okay = openWritePC(fout, "route.txt");
@@ -340,6 +344,9 @@ void clean (state* cur_state)
 			while (readIntPC(fin, x_coord))
 			{
 				readIntPC(fin, y_coord);
+				if ((x_coord >= 24 && x_coord <= 27) && (y_coord==24 || y_coord ==25)){
+					y_coord = 26;
+				}
 				while (cur_state->pos[0] != x_coord && cur_state->pos[1] != y_coord){
 					writeDebugStreamLine("going to (%d,%d)",x_coord, y_coord);
 					go_to(x_coord, y_coord, cur_state);
@@ -351,9 +358,20 @@ void clean (state* cur_state)
 	}
 }
 
+void shutdown(state* cur_state){
+	while (cur_state->pos[0] != 28 && cur_state->pos[1] != 24){
+		go_to(28,24,cur_state);
+		while(*(cur_state->interrupt));
+	}
+	turn((1-cur_state->dir)*90,cur_state);
+	motor[motorA] = motor[motorD] = 30;
+	while(identifyTouch() != 4);
+	motor[motorA] = motor[motorD] = 0;
+}
+
 task obstacle_avoidance(){
     state current_state;
-    current_state.interrupt = &(map[9][9]);
+    current_state.interrupt = &(map[9][12]);
     current_state.hasFinished = &(map[9][0]);
     while (! *(current_state.hasFinished)){
         if (triggered()){
@@ -367,7 +385,7 @@ task obstacle_avoidance(){
 				drive(25, &current_state, 0);
 				turn(90, &current_state);
 			}
-			else if (sensor == 2){ //front
+			else if (sensor == 2 || getGyroDegrees(S3) < 20){ //front
 			drive(-25, &current_state, 0);
 				if (random(1)){
 					turn(-90, &current_state);
@@ -402,17 +420,17 @@ task main(){
 	wait1Msec(50);
 
 	state current_state;
-	current_state.pos[0] = 1;
-	current_state.pos[1] = 1;
+	current_state.pos[0] = 4;
+	current_state.pos[1] = 8;
 	current_state.dir = 1;
-	current_state.interrupt = &(map[9][9]);
+	current_state.interrupt = &(map[9][12]);
 	current_state.hasFinished = &(map[9][0]);
 	current_state.clean_cycles = 1;
 
-	calculate_route();
+	// calculate_route();
 	startTask(obstacle_avoidance);
-	clean(&current_state);
-	go_to(1,2,&current_state);
+	// clean(&current_state);
+	go_to(1,6,&current_state);
 	// drive(-100, &current_state, 1);
 	// turn(-90, &current_state, 1);
 	// wait1Msec(500);
